@@ -34,6 +34,7 @@
 
 const express = require("express");
 const Users = require("../users/users-model.js");
+const bcryptjs = require("bcryptjs");
 const {
   checkUsernameFree,
   checkUsernameExists,
@@ -43,15 +44,44 @@ const {
 const router = express.Router();
 
 router.post("/register", checkUsernameFree, checkPasswordLength, async (req, res, next) => {
-  res.status(200).json({message: "register is connected"})
+  let user = req.body;
+  const hash = bcryptjs.hashSync(user.password, 12);
+  user.password = hash;
+  let newUser = await Users.add(user);
+  try {
+    res.status(200).json(newUser);
+  } catch(err) {
+    next(err);
+  }
 })
 
 router.post("/login", checkUsernameExists, async (req, res, next) => {
-  res.status(200).json({message: "login is connected"})
+  const {username, password} = req.body;
+  let [user] = await Users.findBy({username});
+  try {
+    if (!user || !bcryptjs.compareSync(password, user.password)) {
+      res.status(401).json({message: "Invalid credentials"})
+    } else {
+      req.session.user = user;
+      res.status(200).json({message: `Welcome ${user.username}!`})
+    }
+  } catch(err) {
+    next({status: 500, message: "the server had trouble with login"})
+  }
 })
 
 router.get("/logout", async (req, res, next) => {
-  res.status(200).json({message: "logout is connected"})
+  if (req.session) {
+    req.session.destroy(err => {
+      if (err) {
+        next({status: 500, message: "There was an issue logging out"})
+      } else {
+        res.status(200).json({message: "logged out"})
+      }
+    })
+  } else {
+    res.status(200).json({message: "no session"})
+  }
 })
 
 module.exports = router;

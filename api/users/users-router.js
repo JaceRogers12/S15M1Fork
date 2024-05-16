@@ -21,7 +21,12 @@ const {
 const router = express.Router();
 
 router.get("/", restricted, async (req, res, next) => {
-  res.status(200).json({message: "get users is connected"})
+  const users = await Users.find();
+  try {
+    res.status(200).json(users);
+  } catch(err) {
+    next({status: 500, message: "There was an issue retrieving the users"});
+  }
 })
 
 module.exports = router;
